@@ -1,4 +1,3 @@
-require 'syslog'
 
 # Pass feedback to the user.  Log levels are modeled after syslog's, and it is
 # expected that that will be the most common log destination.  Supports
@@ -164,6 +163,7 @@ class Puppet::Util::Log
         end
 
         def initialize
+            require 'syslog'
             if Syslog.opened?
                 Syslog.close
             end
