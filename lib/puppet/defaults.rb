@@ -8,7 +8,12 @@ module Puppet
 
     # Make File.expand_path happy
     require 'etc'
-    ENV["HOME"] ||= Etc.getpwuid(Process.uid).dir
+    require 'rbconfig'
+    if Config::CONFIG['host_os'] =~ /win32/
+        ENV["HOME"] ||= ENV["USERPROFILE"]
+    else
+       ENV["HOME"] ||= Etc.getpwuid(Process.uid).dir
+    end
 
     if name != "puppetmasterd" and Puppet::Util::SUIDManager.uid != 0
         conf = File.expand_path("~/.puppet")
