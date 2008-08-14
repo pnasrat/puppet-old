@@ -6,28 +6,29 @@ describe Puppet::Module, " when building its search path" do
     include PuppetTest
 
     it "should fully qualify unqualified paths in the search path" do
-        Puppet[:modulepath] = "something:/my/something"
-        File.stubs(:directory?).returns(true)
+        Puppet[:modulepath] = "something#{File::PATH_SEPARATOR}/my/something"
+        Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Puppet::Module.modulepath.should == [File.join(Dir.getwd, 'something'), "/my/something"]
     end
 
     it "should ignore paths that do not exist" do
-        Puppet[:modulepath] = "/yes:/no"
-        File.expects(:directory?).with("/yes").returns(true)
-        File.expects(:directory?).with("/no").returns(false)
+	# Given a  module path of an existent path and a non-existant path , when I query the modulepath then I should return only existing paths
+        Puppet[:modulepath] = "/yes#{File::PATH_SEPARATOR}/no"
+		Puppet::Module.stubs(:valid_moduledir?).with("/yes").returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).with("/no").returns(false)
         Puppet::Module.modulepath.should == %w{/yes}
     end
 
     it "should prepend PUPPETLIB in search path when set" do
-        Puppet[:modulepath] = "/my/mod:/other/mod"
-        ENV["PUPPETLIB"] = "/env/mod:/myenv/mod"
-        File.stubs(:directory?).returns(true)
+        Puppet[:modulepath] = "/my/mod#{File::PATH_SEPARATOR}/other/mod"
+        ENV["PUPPETLIB"] = "/env/mod#{File::PATH_SEPARATOR}/myenv/mod"
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Puppet::Module.modulepath.should == %w{/env/mod /myenv/mod /my/mod /other/mod}
     end
 
     it "should use the environment-specific search path when a node environment is provided" do
-        Puppet.settings.expects(:value).with(:modulepath, "myenv").returns("/mone:/mtwo")
-        File.stubs(:directory?).returns(true)
+        Puppet.settings.expects(:value).with(:modulepath, "myenv").returns("/mone#{File::PATH_SEPARATOR}/mtwo")
+        Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Puppet::Module.modulepath("myenv").should == %w{/mone /mtwo}
     end
 
@@ -76,8 +77,9 @@ describe Puppet::Module, " when searching for templates" do
     end
 
     it "should return the template from the first found module" do
-        Puppet[:modulepath] = "/one:/two"
+        Puppet[:modulepath] = "/one#{File::PATH_SEPARATOR}/two"
         File.stubs(:directory?).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Puppet::Module.find_template("mymod/mytemplate").should == "/one/mymod/templates/mytemplate"
     end
     
@@ -110,7 +112,8 @@ describe Puppet::Module, " when searching for templates" do
     it "should use the node environment if specified" do
         Puppet.settings.stubs(:value).returns.returns("/my/directory")
         Puppet.settings.expects(:value).with(:modulepath, "myenv").returns("/my/modules")
-        File.stubs(:directory?).returns(true)
+        Puppet::Module.expects(:valid_moduledir?).returns(true)
+		File.stubs(:directory?).returns(true)
         Puppet::Module.find_template("mymod/envtemplate", "myenv").should == "/my/modules/mymod/templates/envtemplate"
     end
 
@@ -124,19 +127,19 @@ describe Puppet::Module, " when searching for manifests when no module is found"
 
     it "should not look for modules when paths are fully qualified" do
         Puppet.expects(:value).with(:modulepath).never
-        file = "/fully/qualified/file.pp"
+        file = File.expand_path("/fully/qualified/file.pp")
         Dir.stubs(:glob).with(file).returns([file])
         Puppet::Module.find_manifests(file)
     end
 
     it "should directly return fully qualified files" do
-        file = "/fully/qualified/file.pp"
+        file = File.expand_path("/fully/qualified/file.pp")
         Dir.stubs(:glob).with(file).returns([file])
         Puppet::Module.find_manifests(file).should == [file]
     end
 
     it "should match against provided fully qualified patterns" do
-        pattern = "/fully/qualified/pattern/*"
+        pattern = File.expand_path("/fully/qualified/pattern/*")
         Dir.expects(:glob).with(pattern).returns(%w{my file list})
         Puppet::Module.find_manifests(pattern).should == %w{my file list}
     end
@@ -148,20 +151,22 @@ describe Puppet::Module, " when searching for manifests when no module is found"
     end
 
     it "should only return files, not directories" do
-        pattern = "/fully/qualified/pattern/*"
+        pattern = File.expand_path("/fully/qualified/pattern/*")
         file = "/my/file"
         dir = "/my/directory"
         Dir.expects(:glob).with(pattern).returns([file, dir])
         FileTest.expects(:directory?).with(file).returns(false)
         FileTest.expects(:directory?).with(dir).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Puppet::Module.find_manifests(pattern).should == [file]
     end
 end
 
 describe Puppet::Module, " when searching for manifests in a found module" do
     it "should return the manifests from the first found module" do
-        Puppet[:modulepath] = "/one:/two"
+        Puppet[:modulepath] = "/one#{File::PATH_SEPARATOR}/two"
         File.stubs(:directory?).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Dir.expects(:glob).with("/one/mymod/manifests/init.pp").returns(%w{/one/mymod/manifests/init.pp})
         Puppet::Module.find_manifests("mymod/init.pp").should == ["/one/mymod/manifests/init.pp"]
     end
@@ -169,13 +174,15 @@ describe Puppet::Module, " when searching for manifests in a found module" do
     it "should use the node environment if specified" do
         Puppet.settings.expects(:value).with(:modulepath, "myenv").returns("/env/modules")
         File.stubs(:directory?).returns(true)
-        Dir.expects(:glob).with("/env/modules/mymod/manifests/envmanifest.pp").returns(%w{/env/modules/mymod/manifests/envmanifest.pp})
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)        
+		Dir.expects(:glob).with("/env/modules/mymod/manifests/envmanifest.pp").returns(%w{/env/modules/mymod/manifests/envmanifest.pp})
         Puppet::Module.find_manifests("mymod/envmanifest.pp", :environment => "myenv").should == ["/env/modules/mymod/manifests/envmanifest.pp"]
     end
 
     it "should return all manifests matching the glob pattern" do
         Puppet.settings.expects(:value).with(:modulepath, nil).returns("/my/modules")
         File.stubs(:directory?).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Dir.expects(:glob).with("/my/modules/mymod/manifests/yay/*.pp").returns(%w{/one /two})
         Puppet::Module.find_manifests("mymod/yay/*.pp").should == %w{/one /two}
     end
@@ -183,6 +190,7 @@ describe Puppet::Module, " when searching for manifests in a found module" do
     it "should not return directories" do
         Puppet.settings.expects(:value).with(:modulepath, nil).returns("/my/modules")
         File.stubs(:directory?).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Dir.expects(:glob).with("/my/modules/mymod/manifests/yay/*.pp").returns(%w{/one /two})
         FileTest.expects(:directory?).with("/one").returns false
         FileTest.expects(:directory?).with("/two").returns true
@@ -192,6 +200,7 @@ describe Puppet::Module, " when searching for manifests in a found module" do
     it "should default to the 'init.pp' file in the manifests directory" do
         Puppet.settings.expects(:value).with(:modulepath, nil).returns("/my/modules")
         File.stubs(:directory?).returns(true)
+		Puppet::Module.stubs(:valid_moduledir?).returns(true)
         Dir.expects(:glob).with("/my/modules/mymod/manifests/init.pp").returns(%w{my manifest})
         Puppet::Module.find_manifests("mymod").should == %w{my manifest}
     end

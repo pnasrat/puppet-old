@@ -1,4 +1,6 @@
 # Support for modules
+require 'pathname'
+
 class Puppet::Module
 
     TEMPLATES = "templates"
@@ -9,15 +11,17 @@ class Puppet::Module
     # parameter. Only consider paths that are absolute and existing
     # directories
     def self.modulepath(environment = nil)
-        dirs = Puppet.settings.value(:modulepath, environment).split(":")
+        dirs = Puppet.settings.value(:modulepath, environment).split(File::PATH_SEPARATOR)
         if ENV["PUPPETLIB"]
-            dirs = ENV["PUPPETLIB"].split(":") + dirs
-        else
+            dirs = ENV["PUPPETLIB"].split(File::PATH_SEPARATOR) + dirs
         end
-        dirs.select do |p|
-            p =~ /^#{File::SEPARATOR}/ && File::directory?(p)
-        end
+		dirs.select { |p| valid_moduledir?(p) }
     end
+	
+	def self.valid_moduledir?(dir)
+		p = Pathname.new(dir)
+		p.absolute? && p.directory?
+	end
 
     # Find and return the +module+ that +path+ belongs to. If +path+ is
     # absolute, or if there is no module whose name is the first component
@@ -59,7 +63,7 @@ class Puppet::Module
     # In all cases, an absolute path is returned, which does not
     # necessarily refer to an existing file
     def self.find_template(template, environment = nil)
-        if template =~ /^#{File::SEPARATOR}/
+        if Pathname.new(template).absolute?
             return template
         end
 
