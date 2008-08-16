@@ -53,7 +53,7 @@ Puppet::Network::FormatHandler.create(:marshal, :mime => "text/marshal") do
     end
 end
 
-Puppet::Network::FormatHandler.create(:s, :mime => "text/plain") do
+Puppet::Network::FormatHandler.create(:str, :mime => "text/plain") do
     # For now, use the YAML separator.
     SEPARATOR = "\n---\n"
 
