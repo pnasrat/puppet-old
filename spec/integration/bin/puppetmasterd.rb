@@ -7,6 +7,7 @@ describe "puppetmasterd" do
         # Get a safe temporary file
         file = Tempfile.new("puppetmaster_integration_testing")
         @dir = file.path
+        file.close
         file.delete
 
         Dir.mkdir(@dir)
