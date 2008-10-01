@@ -75,8 +75,10 @@ class EventLoop
     @notify_src, @notify_snk = IO.pipe
 
     # prevent file descriptor leaks
-    @notify_src.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-    @notify_snk.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    if defined?(Fcntl::FD_CLOEXEC)
+        @notify_src.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+        @notify_snk.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    end
 
     @notify_src.will_block = false
     @notify_snk.will_block = false

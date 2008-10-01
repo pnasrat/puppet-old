@@ -6,6 +6,7 @@
 require File.dirname(__FILE__) + '/../../../spec_helper'
 require 'puppet/network/http'
 require 'puppet/network/http/webrick'
+require 'rbconfig'
 
 describe Puppet::Network::HTTP::WEBrick, "after initializing" do
     it "should not be listening" do
@@ -245,10 +246,12 @@ describe Puppet::Network::HTTP::WEBrick do
         end
 
         describe "and creating the logging filehandle" do
-            it "should set fcntl to 'Fcntl::F_SETFD, Fcntl::FD_CLOEXEC'" do
-                @filehandle.expects(:fcntl).with(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+            unless Config::CONFIG['host_os'] =~ /win32/
+                it "should set fcntl to 'Fcntl::F_SETFD, Fcntl::FD_CLOEXEC'" do
+                    @filehandle.expects(:fcntl).with(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
 
-                @server.setup_logger
+                    @server.setup_logger
+                end
             end
 
             it "should sync the filehandle" do
